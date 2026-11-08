@@ -1,9 +1,7 @@
 package main
 
 import (
-	"bytes"
 	_ "embed"
-	"fmt"
 	"html/template"
 	"io"
 	"log"
