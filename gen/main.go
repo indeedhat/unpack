@@ -7,7 +7,6 @@ import (
 	"go/format"
 	"go/parser"
 	"go/token"
-	"io"
 	"io/fs"
 	"log"
 	"os"
@@ -15,6 +14,7 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/mod/modfile"
 )
 
@@ -37,7 +37,7 @@ func main() {
 	}
 
 	for path, tokens := range u.files {
-		if u.generateFile(path, tokens); err != nil {
+		if u.generateFileFromTemplate(path, tokens); err != nil {
 			panic(err)
 		}
 	}
@@ -102,38 +102,65 @@ func (u *unpacker) gatherFiles() error {
 	return err
 }
 
-func (u *unpacker) generateFile(path string, file *file) error {
+func (u *unpacker) generateFileFromTemplate(path string, file *file) error {
 	var output bytes.Buffer
 	var write bool
 
 	dirFromCwd := strings.TrimPrefix(filepath.Dir(path), u.cwd)
 	pathFromCwd := strings.TrimPrefix(path, u.cwd)
 
-	buildFileOpen(&output, file.File.Name.Name, filepath.Join(u.modRoot, dirFromCwd))
-
 	structs, err := extractStructs(file)
 	if err != nil {
 		return err
 	}
 
+	args := map[string]any{
+		"package":    file.File.Name.Name,
+		"targetPath": filepath.Join(u.modRoot, dirFromCwd),
+		"structs":    make([]map[string]any, 0),
+	}
+
 	for _, tspec := range structs {
+		sarg := map[string]any{
+			"name":   tspec.Name.Name,
+			"fields": make([]map[string]any, 0),
+		}
+
 		fields := extractFields(tspec.Type.(*ast.StructType))
 		if len(fields) == 0 {
 			continue
 		}
 
+		args["structs"] = append(args["structs"].([]map[string]any), sarg)
+
 		write = true
-		if err := buildMapper(&output, tspec, fields, file.Tokens); err != nil {
-			return err
-		}
-		if err := buildMutator(&output, tspec, fields, file.Tokens); err != nil {
-			return err
+		for _, field := range fields {
+			ft, err := fieldType(field, file.Tokens)
+			if err != nil {
+				return err
+			}
+
+			tag := newTagParser().Parse(field.Tag.Value)
+
+			sarg["fields"] = append(sarg["fields"].([]map[string]any), map[string]any{
+				"names": field.Names,
+				"type":  stripPtr(ft),
+				"dive":  tag.HasDive(),
+				"tag":   tag,
+				"ptr":   isPtr(ft),
+			})
 		}
 	}
 
-	log.Print(write)
-	log.Print(output.String())
+	spew.Dump(args)
+
 	if write {
+		if err := buildFromTemplate(&output, args); err != nil {
+			log.Print(err)
+			return err
+		}
+		log.Print(output.String())
+
 		final, err := format.Source(output.Bytes())
 		if err != nil {
 			log.Print(err)
@@ -151,6 +178,7 @@ func (u *unpacker) generateFile(path string, file *file) error {
 	}
 
 	return nil
+
 }
 
 func extractStructs(file *file) ([]*ast.TypeSpec, error) {
@@ -203,52 +231,4 @@ func fieldType(field *ast.Field, fset *token.FileSet) (string, error) {
 	var buf bytes.Buffer
 	err := format.Node(&buf, fset, field.Type)
 	return buf.String(), err
-}
-
-func buildMapper(w io.Writer, ts *ast.TypeSpec, fields []*ast.Field, fset *token.FileSet) error {
-	buildMapperOpen(w, ts.Name.Name)
-	buildEnsureNotNil(w, ts.Name.Name)
-	buildMutatorCall(w, ts.Name.Name)
-
-	for _, field := range fields {
-		tag := newTagParser().Parse(field.Tag.Value)
-		for _, name := range field.Names {
-			ft, err := fieldType(field, fset)
-			if err != nil {
-				return err
-			}
-
-			if tag.HasDive() {
-				buildNestedAssgnment(w, tag.Key, name.Name, ft)
-			} else {
-				buildLeteralAssignement(w, tag.Key, name.Name, ft)
-			}
-		}
-	}
-
-	buildMapperClose(w)
-
-	return nil
-}
-
-func buildMutator(w io.Writer, ts *ast.TypeSpec, fields []*ast.Field, fset *token.FileSet) error {
-	buildMutatorOpen(w, ts.Name.Name)
-
-	for _, field := range fields {
-		ft, err := fieldType(field, fset)
-		if err != nil {
-			return err
-		}
-
-		tag := newTagParser().Parse(field.Tag.Value)
-		for _, mu := range tag.Mutators {
-			if !tag.HasDive() {
-				buildMutatorApply(w, tag.Key, ft, mu)
-			}
-		}
-	}
-
-	buildMutatorClose(w)
-
-	return nil
 }

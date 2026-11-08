@@ -6,9 +6,31 @@ import (
 	"github.com/indeedhat/unpack/registry"
 )
 
+func applyExampleMutations(data map[string]any) error {
+	if v, err := registry.Apply("trim", data["string_data"].(string), nil); err != nil {
+		return err
+	} else {
+		data["string_data"] = v
+	}
+	if v, err := registry.Apply("not_empty", data["string_data"].(string), nil); err != nil {
+		return err
+	} else {
+		data["string_data"] = v
+	}
+	if v, err := registry.Apply("clamp", data["uncapped_int"].(int), map[string]string{
+		"max": "10",
+		"min": "1",
+	}); err != nil {
+		return err
+	} else {
+		data["uncapped_int"] = v
+	}
+	return nil
+}
+
 func UnpackExample(t *target.Example, data map[string]any) error {
 	if t == nil {
-		*t = target.Example{}
+		t = &target.Example{}
 	}
 	if err := applyExampleMutations(data); err != nil {
 		return err
@@ -29,29 +51,13 @@ func UnpackExample(t *target.Example, data map[string]any) error {
 	}
 	return nil
 }
-func applyExampleMutations(data map[string]any) error {
-	if v, err := registry.Apply("trim", data["string_data"].(string), nil); err != nil {
-		return err
-	} else {
-		data["string_data"] = v
-	}
-	if v, err := registry.Apply("not_empty", data["string_data"].(string), nil); err != nil {
-		return err
-	} else {
-		data["string_data"] = v
-	}
-	if v, err := registry.Apply("clamp", data["uncapped_int"].(int), map[string]string{
-		"min": "1", "max": "10",
-	}); err != nil {
-		return err
-	} else {
-		data["uncapped_int"] = v
-	}
+func applyExampleNestedMutations(data map[string]any) error {
 	return nil
 }
+
 func UnpackExampleNested(t *target.ExampleNested, data map[string]any) error {
 	if t == nil {
-		*t = target.ExampleNested{}
+		t = &target.ExampleNested{}
 	}
 	if err := applyExampleNestedMutations(data); err != nil {
 		return err
@@ -59,8 +65,5 @@ func UnpackExampleNested(t *target.ExampleNested, data map[string]any) error {
 	if v, found := data["data"]; found {
 		t.Data = v.(string)
 	}
-	return nil
-}
-func applyExampleNestedMutations(data map[string]any) error {
 	return nil
 }

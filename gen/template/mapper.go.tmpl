@@ -1,0 +1,70 @@
+package unpack_{{ .package }}
+
+import (
+    target "{{ .targetPath }}"
+
+    "github.com/indeedhat/unpack/registry"
+)
+
+{{- range .structs }}
+func apply{{ .name }}Mutations(data map[string]any) error {
+    {{- range $field := .fields }}
+        {{- range .tag.Mutators }}
+            {{- if $field.dive }}
+                {{- continue }}
+            {{- end }}
+            {{- if .Args }}
+                if v, err := registry.Apply("{{ .Name }}", data["{{ $field.tag.Key }}"].({{ $field.type }}), map[string]string{
+                            {{- range $k, $v := .Args }}
+                    "{{ escape $k }}": "{{ escape $v }}",
+                            {{- end }}
+                }); err != nil {
+                        return err
+                } else {
+                    data["{{ $field.tag.Key }}"] = v
+                }
+            {{- else }}
+                if v, err := registry.Apply("{{ .Name }}", data["{{ $field.tag.Key }}"].({{ $field.type }}), nil); err != nil {
+                        return err
+                } else {
+                    data["{{ $field.tag.Key }}"] = v
+                }
+            {{- end }}
+        {{- end }}
+    {{- end }}
+    return nil
+}
+
+func Unpack{{ .name }}(t *target.{{ .name }}, data map[string]any) error {
+    if t == nil {
+        t = &target.{{ .name }}{}
+    }
+    if err := apply{{ .name }}Mutations(data); err != nil {
+        return err
+    }
+    {{- range $field := .fields }}
+        {{- range $field.names }}
+            {{- if $field.dive }}
+                if v, found := data["{{ $field.tag.Key }}"]; found {
+                    vv, ok := v.(map[string]any)
+                    if ok {
+                        if err := Unpack{{ $field.type }}({{ if not $field.ptr }}&{{ end }}t.{{ .Name }}, vv); err != nil {
+                            return err
+                        }
+                    }
+                }
+            {{- else }}
+                if v, found := data["{{ $field.tag.Key }}"]; found {
+                    {{- if $field.ptr }}
+                        t.{{ .Name }} = new(v.(%s))
+                    {{- else }}
+                        t.{{ .Name }} = v.({{ $field.type }})
+                    {{- end }}
+                }
+            {{- end }}
+        {{- end }}
+    {{- end }}
+    return nil
+}
+{{- end }}
+

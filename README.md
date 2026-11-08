@@ -7,3 +7,10 @@ type Example struct {
     Range int `unpack:"uncapped_int;between,min=1,max=10"`
 }
 ```
+
+## Todo
+- [ ] better errors
+- [ ] sort out package structure
+- [ ] sort out central unpacker to avoid cyclic imports
+- [ ] profile
+- [ ] write docs
