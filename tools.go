@@ -1,3 +1,3 @@
-package unpack
+package main
 
 //go:generate ./unpack

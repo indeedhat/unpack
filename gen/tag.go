@@ -12,6 +12,7 @@ type tag struct {
 }
 
 func (t tag) HasDive() bool {
+	log.Print(t.Key)
 	log.Print(t.Mutators)
 	for _, mu := range t.Mutators {
 		if mu.Name == DiveDirective {
@@ -91,7 +92,7 @@ func (p *tagParser) flushGroup() {
 func (p *tagParser) Parse(in string) tag {
 	st := reflect.StructTag(strings.Trim(in, "`"))
 
-	for _, r := range st {
+	for _, r := range st.Get(UnpackTag) {
 		if p.escaped {
 			p.consume(r)
 			p.escaped = false

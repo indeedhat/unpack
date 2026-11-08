@@ -12,7 +12,7 @@ func buildFileOpen(w io.Writer, packageName, targetPath string) {
 	fmt.Fprintf(w, `import (
 			target "%s"
 
-			"github.com/indeedhat/unpack"
+			"github.com/indeedhat/unpack/registry"
 		)
 		`, targetPath)
 }
@@ -91,7 +91,12 @@ func buildNestedAssgnment(w io.Writer, key, fieldName, dataType string) {
 }
 
 func buildMutatorCall(w io.Writer, dataType string) {
-	fmt.Fprintf(w, "apply%sMutations(data)\n", dataType)
+	fmt.Fprintf(w, `if err := apply%sMutations(data); err != nil {
+		return err
+		}
+		`,
+		dataType,
+	)
 }
 
 func buildMutatorOpen(w io.Writer, dataType string) {
@@ -104,8 +109,7 @@ func buildMutatorClose(w io.Writer) {
 
 func buildMutatorApply(w io.Writer, dataKey, typ string, mu mutator) {
 	if len(mu.Args) == 0 {
-		fmt.Fprintf(w, `v, err := registry.Apply("%s", data["%s"].(%s), nil)
-			if err != nil {
+		fmt.Fprintf(w, `if v, err := registry.Apply("%s", data["%s"].(%s), nil); err != nil {
 				return err
 			} else {
 				data["%s"] = v
@@ -129,10 +133,9 @@ func buildMutatorApply(w io.Writer, dataKey, typ string, mu mutator) {
 		fmt.Fprintf(&mapBuf, `"%s": "%s",`, escape(k), escape(v))
 	}
 
-	fmt.Fprintf(w, `v, err := registry.Apply("%s", data["%s"].(%s), map[string]string{
+	fmt.Fprintf(w, `if v, err := registry.Apply("%s", data["%s"].(%s), map[string]string{
 		%s
-		})
-		if err != nil {
+		}); err != nil {
 			return err
 		} else {
 			data["%s"] = v

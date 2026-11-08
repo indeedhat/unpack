@@ -242,7 +242,9 @@ func buildMutator(w io.Writer, ts *ast.TypeSpec, fields []*ast.Field, fset *toke
 
 		tag := newTagParser().Parse(field.Tag.Value)
 		for _, mu := range tag.Mutators {
-			buildMutatorApply(w, tag.Key, ft, mu)
+			if !tag.HasDive() {
+				buildMutatorApply(w, tag.Key, ft, mu)
+			}
 		}
 	}
 
