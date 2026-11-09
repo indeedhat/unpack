@@ -1,8 +1,7 @@
-package main
+package internal
 
 import (
 	"bytes"
-	"errors"
 	"go/ast"
 	"go/format"
 	"go/parser"
@@ -18,44 +17,19 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
-const (
-	OutputRoot    = "unpack_gen/"
-	DiveDirective = "dive"
-	UnpackTag     = "unpack"
-)
-
-var ErrNotImplemented = errors.New("not implemented")
-
-func main() {
-	u, err := NewUnpacker()
-	if err != nil {
-		panic(err)
-	}
-
-	if err = u.gatherFiles(); err != nil {
-		panic(err)
-	}
-
-	for path, tokens := range u.files {
-		if u.generateFileFromTemplate(path, tokens); err != nil {
-			panic(err)
-		}
-	}
-}
-
-type file struct {
+type File struct {
 	Tokens *token.FileSet
 	File   *ast.File
 }
 
-type unpacker struct {
-	files map[string]*file
+type Unpacker struct {
+	Files map[string]*File
 
 	cwd     string
 	modRoot string
 }
 
-func NewUnpacker() (*unpacker, error) {
+func NewUnpacker() (*Unpacker, error) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -71,14 +45,14 @@ func NewUnpacker() (*unpacker, error) {
 		return nil, err
 	}
 
-	return &unpacker{
+	return &Unpacker{
 		cwd:     cwd,
 		modRoot: mod.Module.Mod.Path,
 	}, nil
 }
 
-func (u *unpacker) gatherFiles() error {
-	u.files = make(map[string]*file)
+func (u *Unpacker) GatherFiles() error {
+	u.Files = make(map[string]*File)
 
 	err := filepath.WalkDir(u.cwd, func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
@@ -95,14 +69,14 @@ func (u *unpacker) gatherFiles() error {
 			return err
 		}
 
-		u.files[path] = &file{tokens, af}
+		u.Files[path] = &File{tokens, af}
 		return nil
 	})
 
 	return err
 }
 
-func (u *unpacker) generateFileFromTemplate(path string, file *file) error {
+func (u *Unpacker) GenerateFileFromTemplate(path string, file *File) error {
 	var output bytes.Buffer
 	var write bool
 
@@ -181,7 +155,7 @@ func (u *unpacker) generateFileFromTemplate(path string, file *file) error {
 
 }
 
-func extractStructs(file *file) ([]*ast.TypeSpec, error) {
+func extractStructs(file *File) ([]*ast.TypeSpec, error) {
 	var structs []*ast.TypeSpec
 
 	for _, decl := range file.File.Decls {

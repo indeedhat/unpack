@@ -1,4 +1,4 @@
-package registry
+package unpack
 
 import "errors"
 
@@ -12,7 +12,7 @@ var (
 	ErrUnexpectedReturnType = errors.New("mutator returned unexpected type")
 )
 
-func Register[T any](key string, mu Mutator[T]) {
+func RegisterMutator[T any](key string, mu Mutator[T]) {
 	reg[key] = func(v any, args map[string]string) (any, error) {
 		typed, ok := v.(T)
 		if !ok {
@@ -24,7 +24,7 @@ func Register[T any](key string, mu Mutator[T]) {
 	}
 }
 
-func Apply[T any](key string, v T, args map[string]string) (T, error) {
+func ApplyMutator[T any](key string, v T, args map[string]string) (T, error) {
 	var zero T
 	mu, ok := reg[key]
 	if !ok {

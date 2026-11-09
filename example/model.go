@@ -1,4 +1,6 @@
-package example
+package main
+
+//go:generate ../unpack-gen
 
 type Example struct {
 	StringField string        `unpack:"string_data;trim;not_empty"`

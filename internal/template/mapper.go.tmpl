@@ -3,7 +3,7 @@ package unpack_{{ .package }}
 import (
     target "{{ .targetPath }}"
 
-    "github.com/indeedhat/unpack/registry"
+    "github.com/indeedhat/unpack"
 )
 
 {{- range .structs }}
@@ -14,7 +14,7 @@ func apply{{ .name }}Mutations(data map[string]any) error {
                 {{- continue }}
             {{- end }}
             {{- if .Args }}
-                if v, err := registry.Apply("{{ .Name }}", data["{{ $field.tag.Key }}"].({{ $field.type }}), map[string]string{
+                if v, err := unpack.ApplyMutator("{{ .Name }}", data["{{ $field.tag.Key }}"].({{ $field.type }}), map[string]string{
                             {{- range $k, $v := .Args }}
                     "{{ escape $k }}": "{{ escape $v }}",
                             {{- end }}
@@ -24,7 +24,7 @@ func apply{{ .name }}Mutations(data map[string]any) error {
                     data["{{ $field.tag.Key }}"] = v
                 }
             {{- else }}
-                if v, err := registry.Apply("{{ .Name }}", data["{{ $field.tag.Key }}"].({{ $field.type }}), nil); err != nil {
+                if v, err := unpack.ApplyMutator("{{ .Name }}", data["{{ $field.tag.Key }}"].({{ $field.type }}), nil); err != nil {
                         return err
                 } else {
                     data["{{ $field.tag.Key }}"] = v

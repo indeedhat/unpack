@@ -1,23 +1,23 @@
-package unpack_example
+package unpack_main
 
 import (
 	target "github.com/indeedhat/unpack/example"
 
-	"github.com/indeedhat/unpack/registry"
+	"github.com/indeedhat/unpack"
 )
 
 func applyExampleMutations(data map[string]any) error {
-	if v, err := registry.Apply("trim", data["string_data"].(string), nil); err != nil {
+	if v, err := unpack.ApplyMutator("trim", data["string_data"].(string), nil); err != nil {
 		return err
 	} else {
 		data["string_data"] = v
 	}
-	if v, err := registry.Apply("not_empty", data["string_data"].(string), nil); err != nil {
+	if v, err := unpack.ApplyMutator("not_empty", data["string_data"].(string), nil); err != nil {
 		return err
 	} else {
 		data["string_data"] = v
 	}
-	if v, err := registry.Apply("clamp", data["uncapped_int"].(int), map[string]string{
+	if v, err := unpack.ApplyMutator("clamp", data["uncapped_int"].(int), map[string]string{
 		"max": "10",
 		"min": "1",
 	}); err != nil {
