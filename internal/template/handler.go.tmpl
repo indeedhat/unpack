@@ -1,0 +1,27 @@
+package unpack_gen
+
+import (
+    "github.com/indeedhat/unpack"
+
+    {{- range .Mods }}
+        unpack_t{{ .Alias }} "{{ .GenPath }}"
+        t{{ .Alias }} "{{ .ModPath }}"
+    {{- end }}
+)
+
+func init() {
+    unpack.RegisterHandler(handler)
+}
+
+func handler(v any, data map[string]any) error {
+    switch vv := v.(type) {
+    {{- range $mod := .Mods }}
+        {{- range $type := .Structs }}
+        case *t{{ $mod.Alias }}.{{ $type }}:
+            return unpack_t{{ $mod.Alias }}.Unpack{{ $type }}(vv, data)
+        {{- end }}
+    {{- end }}
+    default:
+        return unpack.ErrNotFound
+    }
+}

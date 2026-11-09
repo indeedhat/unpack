@@ -9,6 +9,8 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/indeedhat/unpack"
 	"github.com/indeedhat/unpack-example/internal"
+
+	_ "github.com/indeedhat/unpack-example/unpack_gen"
 )
 
 //go:generate ../unpack-gen

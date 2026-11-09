@@ -18,9 +18,7 @@ func main() {
 		panic(err)
 	}
 
-	for path, tokens := range u.Files {
-		if u.GenerateFileFromTemplate(path, tokens); err != nil {
-			panic(err)
-		}
+	if err := u.GenerateFiles(); err != nil {
+		panic(err)
 	}
 }

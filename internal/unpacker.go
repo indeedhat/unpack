@@ -8,6 +8,7 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -22,7 +23,7 @@ type File struct {
 }
 
 type Unpacker struct {
-	Files map[string]*File
+	files map[string]*File
 
 	cwd     string
 	modRoot string
@@ -51,7 +52,7 @@ func NewUnpacker() (*Unpacker, error) {
 }
 
 func (u *Unpacker) GatherFiles() error {
-	u.Files = make(map[string]*File)
+	u.files = make(map[string]*File)
 
 	err := filepath.WalkDir(u.cwd, func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
@@ -68,14 +69,69 @@ func (u *Unpacker) GatherFiles() error {
 			return err
 		}
 
-		u.Files[path] = &File{tokens, af}
+		u.files[path] = &File{tokens, af}
 		return nil
 	})
 
 	return err
 }
 
-func (u *Unpacker) GenerateFileFromTemplate(path string, file *File) error {
+func (u Unpacker) GenerateFiles() error {
+	handlerArgs := handlerFileArgs{
+		Mods: make(map[string]handlerFileMod),
+	}
+
+	for path, tokens := range u.files {
+		if err := u.generateMapperFile(path, tokens); err != nil {
+			return err
+		}
+		u.buildHandlerFileArgs(&handlerArgs, path, tokens)
+	}
+
+	var handlerBuf bytes.Buffer
+	if err := buildHandlerFile(&handlerBuf, handlerArgs); err != nil {
+		return err
+	}
+
+	log.Print(handlerBuf.String())
+	handlerBytes, err := format.Source(handlerBuf.Bytes())
+	if err != nil {
+		return err
+	}
+
+	return os.WriteFile(filepath.Join(OutputRoot, HandlerFileName), handlerBytes, os.ModePerm)
+}
+
+func (u *Unpacker) buildHandlerFileArgs(args *handlerFileArgs, path string, file *File) error {
+	dirFromCwd := strings.TrimPrefix(filepath.Dir(path), u.cwd)
+	modPath := filepath.Join(u.modRoot, dirFromCwd)
+
+	mod, found := args.Mods[modPath]
+	if !found {
+		mod = handlerFileMod{
+			Alias:   len(args.Mods),
+			GenPath: filepath.Join(u.modRoot, OutputRoot, dirFromCwd),
+			ModPath: modPath,
+		}
+	}
+
+	structs, err := extractStructs(file)
+	if err != nil {
+		return err
+	}
+
+	for _, tspec := range structs {
+		mod.Structs = append(mod.Structs, tspec.Name.Name)
+	}
+
+	if len(mod.Structs) > 0 {
+		args.Mods[modPath] = mod
+	}
+
+	return nil
+}
+
+func (u *Unpacker) generateMapperFile(path string, file *File) error {
 	var output bytes.Buffer
 	var write bool
 
@@ -87,24 +143,22 @@ func (u *Unpacker) GenerateFileFromTemplate(path string, file *File) error {
 		return err
 	}
 
-	args := map[string]any{
-		"package":    file.File.Name.Name,
-		"targetPath": filepath.Join(u.modRoot, dirFromCwd),
-		"structs":    make([]map[string]any, 0),
+	args := mapperFileArgs{
+		Package:    file.File.Name.Name,
+		TargetPath: filepath.Join(u.modRoot, dirFromCwd),
+		Structs:    []mapperFileStruct{},
 	}
 
 	for _, tspec := range structs {
-		sarg := map[string]any{
-			"name":   tspec.Name.Name,
-			"fields": make([]map[string]any, 0),
+		sarg := mapperFileStruct{
+			Name:   tspec.Name.Name,
+			Fields: []mapperFileField{},
 		}
 
 		fields := extractFields(tspec.Type.(*ast.StructType))
 		if len(fields) == 0 {
 			continue
 		}
-
-		args["structs"] = append(args["structs"].([]map[string]any), sarg)
 
 		write = true
 		for _, field := range fields {
@@ -115,18 +169,20 @@ func (u *Unpacker) GenerateFileFromTemplate(path string, file *File) error {
 
 			tag := newTagParser().Parse(field.Tag.Value)
 
-			sarg["fields"] = append(sarg["fields"].([]map[string]any), map[string]any{
-				"names": field.Names,
-				"type":  stripPtr(ft),
-				"dive":  tag.HasDive(),
-				"tag":   tag,
-				"ptr":   isPtr(ft),
+			sarg.Fields = append(sarg.Fields, mapperFileField{
+				Names: field.Names,
+				Type:  stripPtr(ft),
+				Dive:  tag.HasDive(),
+				Tag:   tag,
+				Ptr:   isPtr(ft),
 			})
 		}
+
+		args.Structs = append(args.Structs, sarg)
 	}
 
 	if write {
-		if err := buildFromTemplate(&output, args); err != nil {
+		if err := buildMapperFile(&output, args); err != nil {
 			return err
 		}
 
