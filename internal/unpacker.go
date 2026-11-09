@@ -2,18 +2,17 @@ package internal
 
 import (
 	"bytes"
+	"errors"
 	"go/ast"
 	"go/format"
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 
-	"github.com/davecgh/go-spew/spew"
 	"golang.org/x/mod/modfile"
 )
 
@@ -126,33 +125,35 @@ func (u *Unpacker) GenerateFileFromTemplate(path string, file *File) error {
 		}
 	}
 
-	spew.Dump(args)
-
 	if write {
 		if err := buildFromTemplate(&output, args); err != nil {
-			log.Print(err)
 			return err
 		}
-		log.Print(output.String())
 
 		final, err := format.Source(output.Bytes())
 		if err != nil {
-			log.Print(err)
 			return err
 		}
 
-		if err := os.MkdirAll(filepath.Join(u.cwd, OutputRoot, dirFromCwd), os.ModePerm); err != nil {
-			log.Print(err)
+		if err := ensureCleanTargetDir(filepath.Join(u.cwd, OutputRoot, dirFromCwd)); err != nil {
 			return err
 		}
 
-		err = os.WriteFile(filepath.Join(OutputRoot, pathFromCwd), final, os.ModePerm)
-		log.Print(err)
-		return err
+		return os.WriteFile(filepath.Join(OutputRoot, pathFromCwd), final, os.ModePerm)
 	}
 
 	return nil
 
+}
+
+func ensureCleanTargetDir(path string) error {
+	if _, err := os.Stat(path); !errors.Is(err, fs.ErrNotExist) {
+		if err != os.RemoveAll(path) {
+			return err
+		}
+	}
+
+	return os.MkdirAll(path, os.ModePerm)
 }
 
 func extractStructs(file *File) ([]*ast.TypeSpec, error) {

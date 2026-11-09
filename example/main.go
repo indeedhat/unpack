@@ -2,14 +2,19 @@ package main
 
 import (
 	"errors"
+	"log"
 	"strconv"
 	"strings"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/indeedhat/unpack"
+	"github.com/indeedhat/unpack-example/internal"
 )
 
+//go:generate ../unpack-gen
+
 func main() {
-	ex := Example{}
+	ex := internal.Example{}
 	unpack.RegisterMutator("trim", func(v string, args map[string]string) (string, error) {
 		return strings.TrimSpace(v), nil
 	})
@@ -46,14 +51,14 @@ func main() {
 		return v, nil
 	})
 
-	// err := unpack_main.UnpackExample(&ex, map[string]any{
-	// 	"string_data":  "datas ",
-	// 	"uncapped_int": 12,
-	// 	"nested": map[string]any{
-	// 		"data": "nested data",
-	// 	},
-	// })
+	err := unpack.Struct(&ex, map[string]any{
+		"string_data":  "datas ",
+		"uncapped_int": 12,
+		"nested": map[string]any{
+			"data": "nested data",
+		},
+	})
 
-	// spew.Dump(ex)
-	// log.Print(err)
+	spew.Dump(ex)
+	log.Print(err)
 }

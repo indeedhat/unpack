@@ -1,7 +1,7 @@
-package unpack_main
+package unpack_internal
 
 import (
-	target "github.com/indeedhat/unpack/example"
+	target "github.com/indeedhat/unpack-example/internal"
 
 	"github.com/indeedhat/unpack"
 )
