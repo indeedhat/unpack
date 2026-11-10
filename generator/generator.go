@@ -1,4 +1,4 @@
-package internal
+package generator
 
 import (
 	"bytes"
@@ -22,14 +22,25 @@ type File struct {
 	File   *ast.File
 }
 
-type Unpacker struct {
-	files map[string]*File
-
-	cwd     string
-	modRoot string
+type GeneratorConfig struct {
+	TargetPath string
+	Export     bool
+	OutputRoot string
+	TagName    string
 }
 
-func NewUnpacker() (*Unpacker, error) {
+type Generator struct {
+	files map[string]*File
+
+	cwd       string
+	targetDir string
+	modRoot   string
+	cfg       GeneratorConfig
+}
+
+func NewUnpacker(cfg *GeneratorConfig) (*Generator, error) {
+	buildConfig(cfg)
+
 	cwd, err := os.Getwd()
 	if err != nil {
 		return nil, err
@@ -45,16 +56,18 @@ func NewUnpacker() (*Unpacker, error) {
 		return nil, err
 	}
 
-	return &Unpacker{
-		cwd:     cwd,
-		modRoot: mod.Module.Mod.Path,
+	return &Generator{
+		cwd:       cwd,
+		targetDir: filepath.Join(cwd, cfg.TargetPath),
+		modRoot:   mod.Module.Mod.Path,
+		cfg:       *cfg,
 	}, nil
 }
 
-func (u *Unpacker) GatherFiles() error {
-	u.files = make(map[string]*File)
+func (g *Generator) GatherFiles() error {
+	g.files = make(map[string]*File)
 
-	err := filepath.WalkDir(u.cwd, func(path string, d fs.DirEntry, err error) error {
+	err := filepath.WalkDir(g.targetDir, func(path string, d fs.DirEntry, err error) error {
 		if d.IsDir() {
 			return nil
 		}
@@ -69,23 +82,28 @@ func (u *Unpacker) GatherFiles() error {
 			return err
 		}
 
-		u.files[path] = &File{tokens, af}
+		g.files[path] = &File{tokens, af}
 		return nil
 	})
 
 	return err
 }
 
-func (u Unpacker) GenerateFiles() error {
+func (g *Generator) GenerateFiles() error {
 	handlerArgs := handlerFileArgs{
-		Mods: make(map[string]handlerFileMod),
+		Mods:   make(map[string]handlerFileMod),
+		Export: g.cfg.Export,
 	}
 
-	for path, tokens := range u.files {
-		if err := u.generateMapperFile(path, tokens); err != nil {
+	if err := ensureCleanTargetDir(filepath.Join(g.cfg.OutputRoot)); err != nil {
+		return err
+	}
+
+	for path, tokens := range g.files {
+		if err := g.generateMapperFile(path, tokens); err != nil {
 			return err
 		}
-		u.buildHandlerFileArgs(&handlerArgs, path, tokens)
+		g.buildHandlerFileArgs(&handlerArgs, path, tokens)
 	}
 
 	var handlerBuf bytes.Buffer
@@ -99,18 +117,18 @@ func (u Unpacker) GenerateFiles() error {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(OutputRoot, HandlerFileName), handlerBytes, os.ModePerm)
+	return os.WriteFile(filepath.Join(g.cfg.OutputRoot, handlerFileName), handlerBytes, os.ModePerm)
 }
 
-func (u *Unpacker) buildHandlerFileArgs(args *handlerFileArgs, path string, file *File) error {
-	dirFromCwd := strings.TrimPrefix(filepath.Dir(path), u.cwd)
-	modPath := filepath.Join(u.modRoot, dirFromCwd)
+func (g *Generator) buildHandlerFileArgs(args *handlerFileArgs, path string, file *File) error {
+	dirFromCwd := strings.TrimPrefix(filepath.Dir(path), g.cwd)
+	modPath := filepath.Join(g.modRoot, dirFromCwd)
 
 	mod, found := args.Mods[modPath]
 	if !found {
 		mod = handlerFileMod{
 			Alias:   len(args.Mods),
-			GenPath: filepath.Join(u.modRoot, OutputRoot, dirFromCwd),
+			GenPath: filepath.Join(g.modRoot, g.cfg.OutputRoot, dirFromCwd),
 			ModPath: modPath,
 		}
 	}
@@ -131,12 +149,12 @@ func (u *Unpacker) buildHandlerFileArgs(args *handlerFileArgs, path string, file
 	return nil
 }
 
-func (u *Unpacker) generateMapperFile(path string, file *File) error {
+func (g *Generator) generateMapperFile(path string, file *File) error {
 	var output bytes.Buffer
 	var write bool
 
-	dirFromCwd := strings.TrimPrefix(filepath.Dir(path), u.cwd)
-	pathFromCwd := strings.TrimPrefix(path, u.cwd)
+	dirFromCwd := strings.TrimPrefix(filepath.Dir(path), g.cwd)
+	pathFromCwd := strings.TrimPrefix(path, g.cwd)
 
 	structs, err := extractStructs(file)
 	if err != nil {
@@ -145,7 +163,7 @@ func (u *Unpacker) generateMapperFile(path string, file *File) error {
 
 	args := mapperFileArgs{
 		Package:    file.File.Name.Name,
-		TargetPath: filepath.Join(u.modRoot, dirFromCwd),
+		TargetPath: filepath.Join(g.modRoot, dirFromCwd),
 		Structs:    []mapperFileStruct{},
 	}
 
@@ -155,7 +173,7 @@ func (u *Unpacker) generateMapperFile(path string, file *File) error {
 			Fields: []mapperFileField{},
 		}
 
-		fields := extractFields(tspec.Type.(*ast.StructType))
+		fields := g.extractFields(tspec.Type.(*ast.StructType))
 		if len(fields) == 0 {
 			continue
 		}
@@ -167,7 +185,7 @@ func (u *Unpacker) generateMapperFile(path string, file *File) error {
 				return err
 			}
 
-			tag := newTagParser().Parse(field.Tag.Value)
+			tag := newTagParser(g.cfg.TagName).Parse(field.Tag.Value)
 
 			sarg.Fields = append(sarg.Fields, mapperFileField{
 				Names: field.Names,
@@ -191,11 +209,8 @@ func (u *Unpacker) generateMapperFile(path string, file *File) error {
 			return err
 		}
 
-		if err := ensureCleanTargetDir(filepath.Join(u.cwd, OutputRoot, dirFromCwd)); err != nil {
-			return err
-		}
-
-		return os.WriteFile(filepath.Join(OutputRoot, pathFromCwd), final, os.ModePerm)
+		_ = os.MkdirAll(filepath.Join(g.cfg.OutputRoot, dirFromCwd), os.ModePerm)
+		return os.WriteFile(filepath.Join(g.cfg.OutputRoot, pathFromCwd), final, os.ModePerm)
 	}
 
 	return nil
@@ -238,7 +253,7 @@ func extractStructs(file *File) ([]*ast.TypeSpec, error) {
 	return structs, nil
 }
 
-func extractFields(s *ast.StructType) []*ast.Field {
+func (g *Generator) extractFields(s *ast.StructType) []*ast.Field {
 	var fields []*ast.Field
 
 	for _, field := range s.Fields.List {
@@ -248,7 +263,7 @@ func extractFields(s *ast.StructType) []*ast.Field {
 
 		tag := strings.Trim(field.Tag.Value, "`")
 		st := reflect.StructTag(tag)
-		if _, found := st.Lookup(UnpackTag); !found {
+		if _, found := st.Lookup(g.cfg.TagName); !found {
 			continue
 		}
 
@@ -262,4 +277,18 @@ func fieldType(field *ast.Field, fset *token.FileSet) (string, error) {
 	var buf bytes.Buffer
 	err := format.Node(&buf, fset, field.Type)
 	return buf.String(), err
+}
+
+func buildConfig(cfg *GeneratorConfig) {
+	if cfg == nil {
+		cfg = &GeneratorConfig{}
+	}
+
+	if cfg.OutputRoot == "" {
+		cfg.OutputRoot = DefaultOutputRoot
+	}
+
+	if cfg.TagName == "" {
+		cfg.TagName = DefaultUnpackTag
+	}
 }

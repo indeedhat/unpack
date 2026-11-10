@@ -1,4 +1,4 @@
-package internal
+package generator
 
 import (
 	_ "embed"
@@ -33,7 +33,8 @@ type mapperFileField struct {
 }
 
 type handlerFileArgs struct {
-	Mods map[string]handlerFileMod
+	Mods   map[string]handlerFileMod
+	Export bool
 }
 
 type handlerFileMod struct {

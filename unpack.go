@@ -2,23 +2,34 @@ package unpack
 
 import "errors"
 
-type Handler func(v any, data map[string]any) error
-
-var handler Handler
+var defaultRegister = NewRegister(nil)
 
 var (
-	ErrNoHandlerRegistered = errors.New("unpack handler not registered")
-	ErrNotFound            = errors.New("no unpacker for type found")
+	ErrNoHandlerRegistered = errors.New("unpack: no handler not registered")
+	ErrNotFound            = errors.New("unpack: no unpacker for type found")
+
+	ErrInvalidType          = errors.New("unpack: invalid type passed to mutator")
+	ErrNotRegistered        = errors.New("unpack: mutator not registered")
+	ErrUnexpectedReturnType = errors.New("unpack: mutator returned unexpected type")
 )
 
 func RegisterHandler(h Handler) {
-	handler = h
+	defaultRegister.handler = h
 }
 
 func Struct(v any, data map[string]any) error {
-	if handler == nil {
+	if defaultRegister.handler == nil {
 		return ErrNoHandlerRegistered
 	}
 
-	return handler(v, data)
+	return defaultRegister.Unpack(v, data)
+}
+
+func AddMutator[T any](key string, mu Mutator[any]) {
+	defaultRegister.AddMutator(key, mu)
+}
+
+func ApplyMutator[T any](key string, v T, args map[string]string) (T, error) {
+	o, err := defaultRegister.ApplyMutator(key, v, args)
+	return o, err
 }

@@ -1,4 +1,4 @@
-package internal
+package generator
 
 import (
 	"log"
@@ -15,7 +15,7 @@ func (t tag) HasDive() bool {
 	log.Print(t.Key)
 	log.Print(t.Mutators)
 	for _, mu := range t.Mutators {
-		if mu.Name == DiveDirective {
+		if mu.Name == diveDirective {
 			return true
 		}
 	}
@@ -29,6 +29,7 @@ type mutator struct {
 }
 
 type tagParser struct {
+	tagName   string
 	tag       tag
 	mu        mutator
 	key       strings.Builder
@@ -38,8 +39,9 @@ type tagParser struct {
 	hasEquals bool
 }
 
-func newTagParser() *tagParser {
+func newTagParser(tagName string) *tagParser {
 	return &tagParser{
+		tagName: tagName,
 		mu: mutator{
 			Args: make(map[string]string),
 		},
@@ -92,7 +94,7 @@ func (p *tagParser) flushGroup() {
 func (p *tagParser) Parse(in string) tag {
 	st := reflect.StructTag(strings.Trim(in, "`"))
 
-	for _, r := range st.Get(UnpackTag) {
+	for _, r := range st.Get(p.tagName) {
 		if p.escaped {
 			p.consume(r)
 			p.escaped = false

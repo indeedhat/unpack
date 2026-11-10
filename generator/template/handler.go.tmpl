@@ -9,16 +9,20 @@ import (
     {{- end }}
 )
 
-func init() {
-    unpack.RegisterHandler(handler)
-}
+{{ if .Export }}
+    var Register = unpack.NewRegister(handler)
+{{ else }}
+    func init() {
+        unpack.RegisterHandler(handler)
+    }
+{{ end }}
 
-func handler(v any, data map[string]any) error {
+func handler(r *unpack.Register, v any, data map[string]any) error {
     switch vv := v.(type) {
     {{- range $mod := .Mods }}
         {{- range $type := .Structs }}
         case *t{{ $mod.Alias }}.{{ $type }}:
-            return unpack_t{{ $mod.Alias }}.Unpack{{ $type }}(vv, data)
+            return unpack_t{{ $mod.Alias }}.Unpack{{ $type }}(r, vv, data)
         {{- end }}
     {{- end }}
     default:

@@ -7,14 +7,14 @@ import (
 )
 
 {{- range .Structs }}
-func apply{{ .Name }}Mutations(data map[string]any) error {
+func apply{{ .Name }}Mutations(r *unpack.Register, data map[string]any) error {
     {{- range $field := .Fields }}
         {{- range .Tag.Mutators }}
             {{- if $field.Dive }}
                 {{- continue }}
             {{- end }}
             {{- if .Args }}
-                if v, err := unpack.ApplyMutator("{{ .Name }}", data["{{ $field.Tag.Key }}"].({{ $field.Type }}), map[string]string{
+                if v, err := r.ApplyMutator("{{ .Name }}", data["{{ $field.Tag.Key }}"].({{ $field.Type }}), map[string]string{
                             {{- range $k, $v := .Args }}
                     "{{ escape $k }}": "{{ escape $v }}",
                             {{- end }}
@@ -24,7 +24,7 @@ func apply{{ .Name }}Mutations(data map[string]any) error {
                     data["{{ $field.Tag.Key }}"] = v
                 }
             {{- else }}
-                if v, err := unpack.ApplyMutator("{{ .Name }}", data["{{ $field.Tag.Key }}"].({{ $field.Type }}), nil); err != nil {
+                if v, err := r.ApplyMutator("{{ .Name }}", data["{{ $field.Tag.Key }}"].({{ $field.Type }}), nil); err != nil {
                         return err
                 } else {
                     data["{{ $field.Tag.Key }}"] = v
@@ -35,11 +35,11 @@ func apply{{ .Name }}Mutations(data map[string]any) error {
     return nil
 }
 
-func Unpack{{ .Name }}(t *target.{{ .Name }}, data map[string]any) error {
+func Unpack{{ .Name }}(r *unpack.Register, t *target.{{ .Name }}, data map[string]any) error {
     if t == nil {
         t = &target.{{ .Name }}{}
     }
-    if err := apply{{ .Name }}Mutations(data); err != nil {
+    if err := apply{{ .Name }}Mutations(r, data); err != nil {
         return err
     }
     {{- range $field := .Fields }}
@@ -48,7 +48,7 @@ func Unpack{{ .Name }}(t *target.{{ .Name }}, data map[string]any) error {
                 if v, found := data["{{ $field.Tag.Key }}"]; found {
                     vv, ok := v.(map[string]any)
                     if ok {
-                        if err := Unpack{{ $field.Type }}({{ if not $field.Ptr }}&{{ end }}t.{{ .Name }}, vv); err != nil {
+                        if err := Unpack{{ $field.Type }}(r, {{ if not $field.Ptr }}&{{ end }}t.{{ .Name }}, vv); err != nil {
                             return err
                         }
                     }
