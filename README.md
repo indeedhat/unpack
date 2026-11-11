@@ -1,4 +1,8 @@
 # Unpack
+Use go generate to generate efficient unpack logic for any struct
+
+## Docs
+I haven't gotten that far yet, see [_examples](_examples)
 
 ## Schema
 ```go
@@ -7,6 +11,7 @@ type Example struct {
     Range int `unpack:"uncapped_int;between,min=1,max=10"`
 }
 ```
+
 
 ## Todo
 - [ ] write tests
