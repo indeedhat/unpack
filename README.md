@@ -4,6 +4,21 @@ Use go generate to generate efficient unpack logic for any struct
 ## Docs
 I haven't gotten that far yet, see [_examples](_examples)
 
+## Usage
+```console
+Usage of ./unpack-gen:
+  -export
+    	Export a new 'Register' from the handler.go file rather than applying the handler to the defalut Register instance
+  -out string
+    	the output directory for the generated files.
+    	Multiple gen runs cannot share the same output dir. (default "unpack_gen/")
+  -tag string
+    	overwrite the struct tag targeted by the library (default "unpack")
+  -target string
+    	the target directory to use as the scan root
+  -v	verbose output
+```
+
 ## Schema
 ```go
 type Example struct {
