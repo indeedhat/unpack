@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"log"
 	"reflect"
 	"strings"
 )
@@ -12,8 +11,6 @@ type tag struct {
 }
 
 func (t tag) HasDive() bool {
-	log.Print(t.Key)
-	log.Print(t.Mutators)
 	for _, mu := range t.Mutators {
 		if mu.Name == diveDirective {
 			return true

@@ -16,22 +16,21 @@ func main() {
 	flag.StringVar(&cfg.TagName, "tag", generator.DefaultUnpackTag, "overwrite the struct tag targeted by the library")
 	flag.StringVar(&cfg.OutputRoot, "out", generator.DefaultOutputRoot, "the output directory for the generated files.\nMultiple gen runs cannot share the same output dir.")
 	flag.StringVar(&cfg.TargetPath, "target", "", "the target directory to use as the scan root")
+	flag.BoolVar(&cfg.Verbose, "v", false, "verbose output")
 	flag.Parse()
 
-	log.Print("here 1")
 	gen, err := generator.NewUnpacker(cfg)
 	if err != nil {
 		log.Fatalf("setup failed: %s", err)
 	}
-	log.Print("here 2")
 
 	if err = gen.GatherFiles(); err != nil {
 		log.Fatalf("gather failed: %s", err)
 	}
-	log.Print("here 3")
 
 	if err := gen.GenerateFiles(); err != nil {
 		log.Fatalf("generate failed: %s", err)
 	}
-	log.Print("here 4")
+
+	gen.Log.Log("generation complete")
 }

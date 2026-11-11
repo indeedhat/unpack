@@ -8,7 +8,6 @@ import (
 	"go/parser"
 	"go/token"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -27,6 +26,7 @@ type GeneratorConfig struct {
 	Export     bool
 	OutputRoot string
 	TagName    string
+	Verbose    bool
 }
 
 type Generator struct {
@@ -36,6 +36,8 @@ type Generator struct {
 	targetDir string
 	modRoot   string
 	cfg       GeneratorConfig
+
+	Log logger
 }
 
 func NewUnpacker(cfg *GeneratorConfig) (*Generator, error) {
@@ -56,15 +58,24 @@ func NewUnpacker(cfg *GeneratorConfig) (*Generator, error) {
 		return nil, err
 	}
 
+	var l logger
+	if cfg.Verbose {
+		l = consoleLogger{}
+	} else {
+		l = noopLogger{}
+	}
+
 	return &Generator{
 		cwd:       cwd,
 		targetDir: filepath.Join(cwd, cfg.TargetPath),
 		modRoot:   mod.Module.Mod.Path,
 		cfg:       *cfg,
+		Log:       l,
 	}, nil
 }
 
 func (g *Generator) GatherFiles() error {
+	g.Log.Log("Gathering files...")
 	g.files = make(map[string]*File)
 
 	err := filepath.WalkDir(g.targetDir, func(path string, d fs.DirEntry, err error) error {
@@ -86,6 +97,8 @@ func (g *Generator) GatherFiles() error {
 		return nil
 	})
 
+	g.Log.Logf("Found %d files", len(g.files))
+
 	return err
 }
 
@@ -95,29 +108,36 @@ func (g *Generator) GenerateFiles() error {
 		Export: g.cfg.Export,
 	}
 
-	if err := ensureCleanTargetDir(filepath.Join(g.cfg.OutputRoot)); err != nil {
+	g.Log.WithArgs("Cleaning gen directory...", "dir", g.cfg.OutputRoot)
+	if err := ensureCleanTargetDir(g.cfg.OutputRoot); err != nil {
 		return err
 	}
 
 	for path, tokens := range g.files {
+		g.Log.WithArgs("Generating file...", "path", path)
 		if err := g.generateMapperFile(path, tokens); err != nil {
 			return err
 		}
+
+		g.Log.Log("Collecting handler symbols...")
 		g.buildHandlerFileArgs(&handlerArgs, path, tokens)
 	}
 
 	var handlerBuf bytes.Buffer
+	handlerPath := filepath.Join(g.cfg.OutputRoot, handlerFileName)
+	g.Log.WithArgs("Building handler...", "path", handlerPath)
 	if err := buildHandlerFile(&handlerBuf, handlerArgs); err != nil {
 		return err
 	}
 
-	log.Print(handlerBuf.String())
+	g.Log.Log("Formatting...")
 	handlerBytes, err := format.Source(handlerBuf.Bytes())
 	if err != nil {
 		return err
 	}
 
-	return os.WriteFile(filepath.Join(g.cfg.OutputRoot, handlerFileName), handlerBytes, os.ModePerm)
+	g.Log.Log("Writing...")
+	return os.WriteFile(handlerPath, handlerBytes, os.ModePerm)
 }
 
 func (g *Generator) buildHandlerFileArgs(args *handlerFileArgs, path string, file *File) error {
@@ -153,6 +173,7 @@ func (g *Generator) generateMapperFile(path string, file *File) error {
 	var output bytes.Buffer
 	var write bool
 
+	g.Log.Log("Collecting symbols...")
 	dirFromCwd := strings.TrimPrefix(filepath.Dir(path), g.cwd)
 	pathFromCwd := strings.TrimPrefix(path, g.cwd)
 
@@ -199,16 +220,20 @@ func (g *Generator) generateMapperFile(path string, file *File) error {
 		args.Structs = append(args.Structs, sarg)
 	}
 
+	g.Log.Log("Nothing to write...")
 	if write {
+		g.Log.Log("Building file contents...")
 		if err := buildMapperFile(&output, args); err != nil {
 			return err
 		}
 
+		g.Log.Log("Formatting...")
 		final, err := format.Source(output.Bytes())
 		if err != nil {
 			return err
 		}
 
+		g.Log.Log("Writing...")
 		_ = os.MkdirAll(filepath.Join(g.cfg.OutputRoot, dirFromCwd), os.ModePerm)
 		return os.WriteFile(filepath.Join(g.cfg.OutputRoot, pathFromCwd), final, os.ModePerm)
 	}

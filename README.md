@@ -10,9 +10,10 @@ type Example struct {
 
 ## Todo
 - [ ] better errors
-- [ ] logging
-- [ ] add helpers for mutators to more easily handle required/typed args
+- [x] logging
+- [x] add helpers for mutators to more easily handle required/typed args
 - [x] sort out package structure
 - [x] sort out central unpacker to avoid cyclic imports
 - [ ] profile
 - [ ] write docs
+- [ ] write tests
