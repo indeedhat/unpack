@@ -2,6 +2,7 @@ package unpack
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 )
 
@@ -39,7 +40,7 @@ func (r *Register) ApplyMutator[T any](key string, v T, args MutatorArgs) (T, er
 
 	result, err := mu(v, args)
 	if err != nil {
-		return zero, err
+		return zero, fmt.Errorf("unpack: mutator '%s' returned error: %w", key, err)
 	}
 
 	typed, ok := result.(T)

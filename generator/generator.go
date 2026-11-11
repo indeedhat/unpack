@@ -3,6 +3,7 @@ package generator
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"go/ast"
 	"go/format"
 	"go/parser"
@@ -45,17 +46,17 @@ func NewUnpacker(cfg *GeneratorConfig) (*Generator, error) {
 
 	cwd, err := os.Getwd()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
 	data, err := os.ReadFile("go.mod")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read go.mod file: %w", err)
 	}
 
 	mod, err := modfile.Parse("go.mod", data, nil)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to parse go.mod file: %w", err)
 	}
 
 	var l logger
@@ -90,7 +91,7 @@ func (g *Generator) GatherFiles() error {
 		tokens := token.NewFileSet()
 		af, err := parser.ParseFile(tokens, path, nil, 0)
 		if err != nil {
-			return err
+			return fmt.Errorf("failed to parse source file: %w", err)
 		}
 
 		g.files[path] = &File{tokens, af}
@@ -99,7 +100,7 @@ func (g *Generator) GatherFiles() error {
 
 	g.Log.Logf("Found %d files", len(g.files))
 
-	return err
+	return fmt.Errorf("gathering files: %w", err)
 }
 
 func (g *Generator) GenerateFiles() error {
@@ -110,13 +111,13 @@ func (g *Generator) GenerateFiles() error {
 
 	g.Log.WithArgs("Cleaning gen directory...", "dir", g.cfg.OutputRoot)
 	if err := ensureCleanTargetDir(g.cfg.OutputRoot); err != nil {
-		return err
+		return fmt.Errorf("cleaning target directory: %w", err)
 	}
 
 	for path, tokens := range g.files {
 		g.Log.WithArgs("Generating file...", "path", path)
 		if err := g.generateMapperFile(path, tokens); err != nil {
-			return err
+			return fmt.Errorf("generating mapper file (%s): %w", path, err)
 		}
 
 		g.Log.Log("Collecting handler symbols...")
@@ -127,17 +128,22 @@ func (g *Generator) GenerateFiles() error {
 	handlerPath := filepath.Join(g.cfg.OutputRoot, handlerFileName)
 	g.Log.WithArgs("Building handler...", "path", handlerPath)
 	if err := buildHandlerFile(&handlerBuf, handlerArgs); err != nil {
-		return err
+		return fmt.Errorf("building handler file: %w", err)
 	}
 
 	g.Log.Log("Formatting...")
 	handlerBytes, err := format.Source(handlerBuf.Bytes())
 	if err != nil {
-		return err
+		return fmt.Errorf("formatting handler file: %w", err)
 	}
 
 	g.Log.Log("Writing...")
-	return os.WriteFile(handlerPath, handlerBytes, os.ModePerm)
+
+	if err = os.WriteFile(handlerPath, handlerBytes, os.ModePerm); err != nil {
+		return fmt.Errorf("writing handler file: %w", err)
+	}
+
+	return nil
 }
 
 func (g *Generator) buildHandlerFileArgs(args *handlerFileArgs, path string, file *File) error {
@@ -155,7 +161,7 @@ func (g *Generator) buildHandlerFileArgs(args *handlerFileArgs, path string, fil
 
 	structs, err := extractStructs(file)
 	if err != nil {
-		return err
+		return fmt.Errorf("extracting structs: %w", err)
 	}
 
 	for _, tspec := range structs {
@@ -179,7 +185,7 @@ func (g *Generator) generateMapperFile(path string, file *File) error {
 
 	structs, err := extractStructs(file)
 	if err != nil {
-		return err
+		return fmt.Errorf("extracting structs: %w", err)
 	}
 
 	args := mapperFileArgs{
@@ -203,7 +209,7 @@ func (g *Generator) generateMapperFile(path string, file *File) error {
 		for _, field := range fields {
 			ft, err := fieldType(field, file.Tokens)
 			if err != nil {
-				return err
+				return fmt.Errorf("building field type: %w", err)
 			}
 
 			tag := newTagParser(g.cfg.TagName).Parse(field.Tag.Value)
@@ -224,18 +230,22 @@ func (g *Generator) generateMapperFile(path string, file *File) error {
 	if write {
 		g.Log.Log("Building file contents...")
 		if err := buildMapperFile(&output, args); err != nil {
-			return err
+			return fmt.Errorf("building mapper file: %w", err)
 		}
 
 		g.Log.Log("Formatting...")
 		final, err := format.Source(output.Bytes())
 		if err != nil {
-			return err
+			return fmt.Errorf("formatting mapper file: %w", err)
 		}
 
 		g.Log.Log("Writing...")
 		_ = os.MkdirAll(filepath.Join(g.cfg.OutputRoot, dirFromCwd), os.ModePerm)
-		return os.WriteFile(filepath.Join(g.cfg.OutputRoot, pathFromCwd), final, os.ModePerm)
+		if err := os.WriteFile(filepath.Join(g.cfg.OutputRoot, pathFromCwd), final, os.ModePerm); err != nil {
+			return fmt.Errorf("writing mapper file: %w", err)
+		}
+
+		return nil
 	}
 
 	return nil

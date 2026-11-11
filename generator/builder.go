@@ -58,7 +58,7 @@ func buildMapperFile(w io.Writer, args mapperFileArgs) error {
 	}).Parse(mapperTemplate)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("template parse error: %w", err)
 	}
 
 	return t.Execute(w, args)
@@ -68,7 +68,7 @@ func buildHandlerFile(w io.Writer, args handlerFileArgs) error {
 	t, err := template.New("unpack").Parse(handlerTemplate)
 
 	if err != nil {
-		return err
+		return fmt.Errorf("template parse error: %w", err)
 	}
 
 	return t.Execute(w, args)

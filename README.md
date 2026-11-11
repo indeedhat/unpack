@@ -9,11 +9,11 @@ type Example struct {
 ```
 
 ## Todo
+- [ ] write tests
+- [ ] profile
+- [ ] write docs
 - [ ] better errors
 - [x] logging
 - [x] add helpers for mutators to more easily handle required/typed args
 - [x] sort out package structure
 - [x] sort out central unpacker to avoid cyclic imports
-- [ ] profile
-- [ ] write docs
-- [ ] write tests
