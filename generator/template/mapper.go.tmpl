@@ -14,9 +14,9 @@ func apply{{ .Name }}Mutations(r *unpack.Register, data map[string]any) error {
                 {{- continue }}
             {{- end }}
             {{- if .Args }}
-                if v, err := r.ApplyMutator("{{ .Name }}", data["{{ $field.Tag.Key }}"].({{ $field.Type }}), map[string]string{
+                if v, err := r.ApplyMutator("{{ .Name }}", data["{{ $field.Tag.Key }}"].({{ $field.Type }}), unpack.MutatorArgMap{
                             {{- range $k, $v := .Args }}
-                    "{{ escape $k }}": "{{ escape $v }}",
+                    "{{ $k }}": {{ parse_arg $v }},
                             {{- end }}
                 }); err != nil {
                         return err

@@ -2,9 +2,10 @@ package generator
 
 import (
 	_ "embed"
+	"fmt"
 	"html/template"
 	"io"
-	"strings"
+	"regexp"
 )
 
 //go:embed template/mapper.go.tmpl
@@ -44,10 +45,15 @@ type handlerFileMod struct {
 	Structs []string
 }
 
+var rawArgRe = regexp.MustCompile(`^(true|false|\d+|\d+\.\d+)$`)
+
 func buildMapperFile(w io.Writer, args mapperFileArgs) error {
 	t, err := template.New("unpack").Funcs(template.FuncMap{
-		"escape": func(v string) string {
-			return strings.ReplaceAll(strings.ReplaceAll(v, `\`, `\\`), "'", `\'`)
+		"parse_arg": func(v string) string {
+			if rawArgRe.Match([]byte(v)) {
+				return v
+			}
+			return fmt.Sprintf(`"%s"`, v)
 		},
 	}).Parse(mapperTemplate)
 

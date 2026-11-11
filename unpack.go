@@ -29,7 +29,7 @@ func AddMutator[T any](key string, mu Mutator[any]) {
 	defaultRegister.AddMutator(key, mu)
 }
 
-func ApplyMutator[T any](key string, v T, args map[string]string) (T, error) {
+func ApplyMutator[T any](key string, v T, args MutatorArgs) (T, error) {
 	o, err := defaultRegister.ApplyMutator(key, v, args)
 	return o, err
 }
