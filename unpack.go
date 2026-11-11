@@ -25,7 +25,7 @@ func Struct(v any, data map[string]any) error {
 	return defaultRegister.Unpack(v, data)
 }
 
-func AddMutator[T any](key string, mu Mutator[any]) {
+func AddMutator[T any](key string, mu Mutator[T]) {
 	defaultRegister.AddMutator(key, mu)
 }
 

@@ -13,6 +13,7 @@ type Example struct {
 - [ ] profile
 - [ ] write docs
 - [ ] better errors
+- [ ] don't generate mutator if not needed
 - [x] logging
 - [x] add helpers for mutators to more easily handle required/typed args
 - [x] sort out package structure

@@ -1,0 +1,14 @@
+# github.com/indeedhat/automux
+version = 1
+session_id = "unpack"
+
+window "Editor" {
+    exec = "vim"
+    focus = true
+}
+
+window "Shell" {
+    split {}
+}
+
+# vi: ft=hcl

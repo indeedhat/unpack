@@ -3,13 +3,11 @@ package main
 import (
 	"flag"
 	"log"
-	"os"
 
 	"github.com/indeedhat/unpack/generator"
 )
 
 func main() {
-	log.Print(os.Args)
 	cfg := &generator.GeneratorConfig{}
 
 	flag.BoolVar(&cfg.Export, "export", false, "Export a new 'Register' from the handler.go file rather than applying the handler to the defalut Register instance")

@@ -100,7 +100,11 @@ func (g *Generator) GatherFiles() error {
 
 	g.Log.Logf("Found %d files", len(g.files))
 
-	return fmt.Errorf("gathering files: %w", err)
+	if err != nil {
+		return fmt.Errorf("gathering files: %w", err)
+	}
+
+	return nil
 }
 
 func (g *Generator) GenerateFiles() error {

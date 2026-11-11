@@ -10,12 +10,12 @@ func init() {
 	unpack.RegisterHandler(handler)
 }
 
-func handler(v any, data map[string]any) error {
+func handler(r *unpack.Register, v any, data map[string]any) error {
 	switch vv := v.(type) {
 	case *t0.Example:
-		return unpack_t0.UnpackExample(vv, data)
+		return unpack_t0.UnpackExample(r, vv, data)
 	case *t0.ExampleNested:
-		return unpack_t0.UnpackExampleNested(vv, data)
+		return unpack_t0.UnpackExampleNested(r, vv, data)
 	default:
 		return unpack.ErrNotFound
 	}
