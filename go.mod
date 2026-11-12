@@ -3,6 +3,8 @@ module github.com/indeedhat/unpack
 go 1.27.2
 
 require (
-	github.com/davecgh/go-spew v1.1.1
+	github.com/stretchr/testify v1.12.1
 	golang.org/x/mod v0.42.0
 )
+
+require go.yaml.in/yaml/v3 v3.0.5 // indirect

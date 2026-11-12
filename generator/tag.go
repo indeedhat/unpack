@@ -45,49 +45,6 @@ func newTagParser(tagName string) *tagParser {
 	}
 }
 
-func (p *tagParser) flushArg() {
-	if k := strings.TrimSpace(p.key.String()); k != "" {
-		p.mu.Args[k] = p.value.String()
-	}
-
-	p.key.Reset()
-	p.value.Reset()
-	p.hasEquals = false
-}
-
-func (p *tagParser) flushMutator() {
-	if !p.hasEquals && p.mu.Name == "" {
-		p.mu.Name = p.key.String()
-		p.key.Reset()
-	} else {
-		p.flushArg()
-	}
-
-	if p.mu.Name != "" {
-		p.tag.Mutators = append(p.tag.Mutators, p.mu)
-	}
-
-	p.mu = mutator{Args: make(map[string]string)}
-}
-
-func (p *tagParser) consume(r rune) {
-	if p.hasEquals {
-		p.value.WriteRune(r)
-	} else {
-		p.key.WriteRune(r)
-	}
-}
-
-func (p *tagParser) flushGroup() {
-	if p.tag.Key != "" {
-		p.flushMutator()
-		return
-	}
-
-	p.tag.Key = strings.TrimSpace(p.key.String())
-	p.key.Reset()
-}
-
 func (p *tagParser) Parse(in string) tag {
 	st := reflect.StructTag(strings.Trim(in, "`"))
 
@@ -133,4 +90,47 @@ func (p *tagParser) Parse(in string) tag {
 	p.flushGroup()
 
 	return p.tag
+}
+
+func (p *tagParser) flushArg() {
+	if k := strings.TrimSpace(p.key.String()); k != "" {
+		p.mu.Args[k] = p.value.String()
+	}
+
+	p.key.Reset()
+	p.value.Reset()
+	p.hasEquals = false
+}
+
+func (p *tagParser) flushMutator() {
+	if !p.hasEquals && p.mu.Name == "" {
+		p.mu.Name = p.key.String()
+		p.key.Reset()
+	} else {
+		p.flushArg()
+	}
+
+	if p.mu.Name != "" {
+		p.tag.Mutators = append(p.tag.Mutators, p.mu)
+	}
+
+	p.mu = mutator{Args: make(map[string]string)}
+}
+
+func (p *tagParser) consume(r rune) {
+	if p.hasEquals {
+		p.value.WriteRune(r)
+	} else {
+		p.key.WriteRune(r)
+	}
+}
+
+func (p *tagParser) flushGroup() {
+	if p.tag.Key != "" {
+		p.flushMutator()
+		return
+	}
+
+	p.tag.Key = strings.TrimSpace(p.key.String())
+	p.key.Reset()
 }

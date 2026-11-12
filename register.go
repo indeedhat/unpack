@@ -38,6 +38,10 @@ func (r *Register) ApplyMutator[T any](key string, v T, args MutatorArgs) (T, er
 		return zero, ErrNotRegistered
 	}
 
+	if args == nil {
+		args = MutatorArgMap{}
+	}
+
 	result, err := mu(v, args)
 	if err != nil {
 		return zero, fmt.Errorf("unpack: mutator '%s' returned error: %w", key, err)
